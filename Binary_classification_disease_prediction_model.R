@@ -1,5 +1,16 @@
+#=============================
+# 图片保存路径
+#=============================
+
+save_path <- "D:/r studio 4.6.0/RF_Result/"
+
+# 如果文件夹不存在，则自动创建
+if(!dir.exists(save_path)){
+  dir.create(save_path)
+}
+
 ###########################################################
-# Random Forest 疾病预测模型
+# Random Forest 二分类疾病预测模型
 ###########################################################
 
 #=============================
@@ -248,3 +259,226 @@ for(i in top10){
 ###########################################################
 # End
 ###########################################################
+
+# 保存roc曲线
+roc_df <- data.frame(
+  FPR = 1 - roc_rf$specificities,
+  TPR = roc_rf$sensitivities
+)
+
+p1 <- ggplot(roc_df, aes(FPR, TPR)) +
+  geom_line(linewidth=1.5, colour="#D55E00") +
+  geom_abline(intercept=0, slope=1,
+              linetype=2,
+              colour="grey60") +
+  theme_classic(base_size=16) +
+  labs(title="Random Forest ROC Curve",
+       x="False Positive Rate",
+       y="True Positive Rate") +
+  annotate("text",
+           x=0.65,
+           y=0.15,
+           label=paste("AUC =", round(as.numeric(auc_rf),3)),
+           size=6)
+
+ggsave(
+  filename=paste0(save_path,"ROC_RF.png"),
+  plot=p1,
+  width=6,
+  height=5,
+  dpi=600
+)
+
+library(reshape2)
+
+cm <- table(True=test$Group,
+            Predicted=pred)
+
+cm_df <- melt(cm)
+
+p2 <- ggplot(cm_df,
+             aes(Predicted,True))+
+  geom_tile(aes(fill=value),
+            colour="white")+
+  geom_text(aes(label=value),
+            size=8,
+            fontface="bold")+
+  scale_fill_viridis_c()+
+  theme_classic(base_size=16)+
+  labs(title="Confusion Matrix")
+
+ggsave(
+  filename=paste0(save_path,"Confusion_Matrix.png"),
+  plot=p2,
+  width=5,
+  height=5,
+  dpi=600
+)
+
+# 保存混淆矩阵
+library(reshape2)
+library(ggplot2)
+
+#=========================
+# 混淆矩阵
+#=========================
+cm <- table(
+  True = test$Group,
+  Predicted = pred
+)
+
+cm_df <- melt(cm)
+
+# 将0和1改成文字标签
+cm_df$True <- factor(
+  cm_df$True,
+  levels = c(0,1),
+  labels = c("Group 0","Group 1")
+)
+
+cm_df$Predicted <- factor(
+  cm_df$Predicted,
+  levels = c(0,1),
+  labels = c("Group 0","Group 1")
+)
+
+# 绘图
+p2 <- ggplot(
+  cm_df,
+  aes(x = Predicted,
+      y = True,
+      fill = value)
+) +
+  
+  geom_tile(
+    color = "white",
+    linewidth = 1
+  ) +
+  
+  geom_text(
+    aes(label = value),
+    size = 10,
+    fontface = "bold"
+  ) +
+  
+  scale_fill_gradient(
+    low = "#EAF2F8",
+    high = "#2166AC"
+  ) +
+  
+  labs(
+    title = "Confusion Matrix",
+    x = "Predicted Class",
+    y = "True Class"
+  ) +
+  
+  theme_classic(base_size = 18) +
+  
+  theme(
+    
+    plot.title = element_text(
+      hjust = 0.5,
+      face = "bold"
+    ),
+    
+    axis.title = element_text(
+      face = "bold"
+    ),
+    
+    axis.text = element_text(
+      size = 15
+    ),
+    
+    legend.position = "none"
+    
+  )
+
+# 保存图片
+ggsave(
+  filename = paste0(save_path,"Confusion_Matrix.png"),
+  plot = p2,
+  width = 6,
+  height = 5,
+  dpi = 600
+)
+# 保存top20重要性
+imp <- importance(rf_model)
+
+imp <- data.frame(imp)
+
+imp$Feature <- rownames(imp)
+
+imp <- imp[order(imp$MeanDecreaseGini,
+                 decreasing=TRUE),]
+
+imp20 <- head(imp,20)
+
+p3 <- ggplot(
+  imp20,
+  aes(reorder(Feature,
+              MeanDecreaseGini),
+      MeanDecreaseGini)
+)+
+  geom_col(fill="#4DBBD5")+
+  coord_flip()+
+  theme_classic(base_size=16)+
+  labs(title="Top20 Important Features",
+       x="",
+       y="Mean Decrease Gini")
+
+ggsave(
+  filename=paste0(save_path,"Top20_Importance.png"),
+  plot=p3,
+  width=8,
+  height=7,
+  dpi=600
+)
+
+#保存性能模型图
+library(caret)
+
+cm <- confusionMatrix(pred,test$Group)
+
+acc <- mean(pred==test$Group)
+
+sen <- as.numeric(cm$byClass["Sensitivity"])
+
+spe <- as.numeric(cm$byClass["Specificity"])
+
+result <- data.frame(
+  
+  Metric=c(
+    "Accuracy",
+    "Sensitivity",
+    "Specificity",
+    "AUC"),
+  
+  Value=c(
+    acc,
+    sen,
+    spe,
+    as.numeric(auc_rf))
+)
+
+p4 <- ggplot(result,
+             aes(Metric,
+                 Value,
+                 fill=Metric))+
+  geom_col(width=0.6)+
+  geom_text(aes(label=round(Value,3)),
+            vjust=-0.5,
+            size=6)+
+  ylim(0,1.1)+
+  theme_classic(base_size=16)+
+  theme(legend.position="none")
+
+ggsave(
+  filename=paste0(save_path,"Model_Performance.png"),
+  plot=p4,
+  width=6,
+  height=5,
+  dpi=600
+)
+
+cat("所有图片已保存至：\n")
+cat(save_path)
