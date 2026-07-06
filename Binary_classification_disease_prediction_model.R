@@ -64,7 +64,7 @@ print(table(data2$Group))
 #=============================
 met_cols <- grep("^Metabolite", names(data2))
 
-# 如果你的列名不是Metabolite开头，可以注释掉下面两步
+# 列名
 if(length(met_cols)>0){
   
   # log2转换
